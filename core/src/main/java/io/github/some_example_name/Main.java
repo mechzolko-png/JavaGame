@@ -15,10 +15,13 @@ class Game {
     Enemy BOSS;
     ArrayList<Enemy> enemies;
     ArrayList<Bullet> bullets;
+    ArrayList<Bullet> bossBullets;
     Game () {
-        player = new Player(100, 30, 10, 100, 100);
+        player = new Player(100, 20, 10, 100, 100);
         enemies = new ArrayList<>();
         bullets = new ArrayList<>();
+        bossBullets = new ArrayList<>();
+        BOSS = new Enemy(1000,20,10,new Vec2(100,100),10);
     }
 
     void updateShot () {
@@ -42,15 +45,57 @@ class Game {
                 bullets.remove(bullet);
             }
             for (Enemy enemy : enemies) {
-                if (math.distance(enemy.pos,bullet.pos) <= enemy.r + bullet.r) {}
+                if (math.distance(enemy.pos,bullet.pos) <= enemy.r + bullet.r) {
+                    bullets.remove(bullet);
+                    enemy.hp -= player.bDMG;
+                }
             }
         }
     }
 
+    void updateBossShot () {
+        if (Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
+            Bullet bullet = player.shot(Gdx.input.getX(),Gdx.input.getY());
+            bossBullets.add(bullet);
+        }
+
+        for (Bullet bullet : bossBullets) {
+            bullet.Move();
+            if (bullet.pos.x >= 1500) {
+                bossBullets.remove(bullet);
+            }
+            if (bullet.pos.x <= 0) {
+                bossBullets.remove(bullet);
+            }
+            if (bullet.pos.y >= 800) {
+                bossBullets.remove(bullet);
+            }
+            if (bullet.pos.y <= 0) {
+                bullets.remove(bullet);
+            }
+
+            if (math.distance(player.pos,bullet.pos) <= player.r + bullet.r) {
+                bossBullets.remove(bullet);
+                player.hp -= BOSS.bDMG;
+            }
+
+        }
+    }
+
+    void updateEnemies () {
+        for (Enemy enemy : enemies) {
+            enemy.update(player);
+
+            if (enemy.hp <= 0) {enemies.remove(enemy);}
+        }
+    }
+
     void update () {
-        player.update();
+        player.update(new Vec2(Gdx.input.getX(),Gdx.input.getY()));
+        BOSS.updateBoss(player,enemies,new Vec2(Gdx.input.getX(),Gdx.input.getY()));
 
         updateShot();
+        updateEnemies();
     }
 }
 
@@ -62,6 +107,8 @@ class Player {
     float bSpeed;
     float speed = 5;
     float r = 20;
+    float timer = 0f;
+    float shotCooldown = 0.2f;
 
     Player (int hp, int m1DMG, int bDMG, float x, float y) {
         this.hp = hp;
@@ -102,8 +149,14 @@ class Player {
         }
     }
 
-    void update () {
+    void update (Vec2 mouse) {
+        timer += Gdx.graphics.getDeltaTime();
         Controll();
+
+        if (Gdx.input.isButtonPressed(Input.Buttons.LEFT) && timer >= shotCooldown) {
+            shot(mouse.x, mouse.y);
+            timer = 0f;
+        }
     }
 
 }
@@ -116,12 +169,17 @@ class Enemy {
     Vec2 pos;
     float timer = 0f;
     float cooldown = 0.5f;
+    float speed;
+    float shotTimer = 0f;
+    float shotCooldown = 3f;
+    float bSpeed = 10;
 
-    Enemy (int hp, int m1DMG, int bDMG,Vec2 pos) {
+    Enemy (int hp, int m1DMG, int bDMG,Vec2 pos, float speed) {
         this.hp = hp;
         this.bDMG = bDMG;
         this.m1DMG = m1DMG;
         this.pos = pos;
+        this.speed = speed;
     }
 
     void attack (Player player) {
@@ -136,12 +194,43 @@ class Enemy {
         }
     }
 
-    void update () {
+    void Move (Player player) {
+        Vec2 v = math.getvelocity(pos,player.pos,speed);
+        pos.x += v.x;
+        pos.y += v.y;
+    }
+
+    Bullet shot(float mx,float my) {
+        Vec2 mousepos = new Vec2(mx,my);
+        Vec2 bV = math.getvelocity(pos,mousepos,bSpeed);
+        return new Bullet(pos.x, pos.y, bV.x, bV.y);          // Incomplete
+    }
+
+    void update (Player player) {
         timer += Gdx.graphics.getDeltaTime();
 
         if (timer >= cooldown) {
             takeDmg(m1DMG);
+            timer = 0f;
         }
+
+        Move(player);
+    }
+
+    void updateBoss (Player player,ArrayList<Enemy> enemies,Vec2 mouse) {
+        timer += Gdx.graphics.getDeltaTime();
+        shotTimer += Gdx.graphics.getDeltaTime();
+
+        if (timer >= cooldown) {
+            takeDmg(m1DMG);
+            timer = 0f;
+        }
+
+        if (shotTimer >= shotCooldown) {
+            shot(mouse.x, mouse.y);
+        }
+
+        Move(player);
     }
 }
 
