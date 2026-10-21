@@ -90,6 +90,7 @@ class Game {
         }
     }
 
+
     void update () {
         player.update(new Vec2(Gdx.input.getX(),Gdx.input.getY()));
         BOSS.updateBoss(player,enemies,new Vec2(Gdx.input.getX(),Gdx.input.getY()));
